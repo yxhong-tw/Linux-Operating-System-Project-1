@@ -1,6 +1,8 @@
 #include<linux/kernel.h>
 #include<linux/uaccess.h>
 #include<linux/init_task.h>
+#include<linux/module.h>
+
 
 //reference: 
 // https://stackoverflow.com/questions/41090469/linux-kernel-how-to-get-physical-address-memory-management
@@ -9,22 +11,37 @@
 static struct page *from_virt_to_page(struct mm_struct *mm, unsigned long address) {
     struct page *pg;
 
-    pgd_t *pgd = pgd_offset(mm, address)
-    if(pgd_bad(*pgd) || pgd_none(*pgd)) return NULL;    //error check
+    pgd_t *pgd = pgd_offset(mm, address);
+    if(pgd_bad(*pgd) || pgd_none(*pgd)) {
+        printk("no pgd\n");
+        return NULL;    //error check
+    }
+
+    p4d_t *p4d = p4d_offset(pgd, address);
+    if(p4d_bad(*p4d) || p4d_none(*p4d)) {
+        printk("no p4d\n");
+        return NULL;    //error check
+    }
     
-    pud_t *pud = pud_offset(pgd, address)
-    if(pud_bad(*pud) || pud_none(*pud)) return NULL;    //eroor check
+    pud_t *pud = pud_offset(p4d, address);
+    if(pud_bad(*pud) || pud_none(*pud)) { 
+        printk("no pud\n");
+        return NULL;    //eroor check
+    }
 
-    pmd_t *pmd = pmd_offset(pud, address)
-    if(pmd_bad(*pmd) || pmd_none(*pmd)) return NULL;    //error check
+    pmd_t *pmd = pmd_offset(pud, address);
+    if(pmd_bad(*pmd) || pmd_none(*pmd)) {
+        printk("no pmd\n");
+        return NULL;    //error check
+    }
 
-    pte_t *pte = pte_offset(pmd, address)
-    if(pte_none(*pte) return NULL;
+    pte_t *pte = pte_offset_kernel(pmd, address);
+    if(pte_none(*pte)) {
+        printk("no pte\n");
+        return NULL;
+    }
 
     pg = pte_page(*pte);
-
-    pte_unmap(pte);
-
     return pg;
 }
 
@@ -38,8 +55,13 @@ asmlinkage unsigned long sys_virt_to_phy(unsigned long *in, int len_vir, unsigne
     copy_from_user(virtual_address, in, sizeof(unsigned long) * len_vir);
     
     //loop the virtual addreess to physical address
-    for(int i = 0; i < len_vir; i++) {
+    int i = 0;
+    for(; i < len_vir; i++) {
         struct page *pg = from_virt_to_page(mm, virtual_address[i]);
+        if(pg == NULL) {
+            printk("page unfound");
+            return -1;
+        }
         physical_address[i] = page_to_phys(pg);
         printk("address %d:\nvir: %x\nphy: %x\n", i, virtual_address[i], physical_address[i]);
     }

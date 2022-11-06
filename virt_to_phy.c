@@ -4,70 +4,87 @@
 #include<linux/module.h>
 
 
-//reference: 
-// https://stackoverflow.com/questions/41090469/linux-kernel-how-to-get-physical-address-memory-management
-// https://hackmd.io/FvdVCtRaQ_SrdKh9wyI5jw?fbclid=IwAR34Mn4EMQiehtY8c_2muLOduNOn74b9yJwJhIoThPzyNYcM0CeVWzlUCIo
+asmlinkage unsigned long sys_virt_to_phy(unsigned long vaddr) {
+    //reference: https://www.1024sou.com/article/584523.html
 
-static struct page *from_virt_to_page(struct mm_struct *mm, unsigned long address) {
-    struct page *pg;
+    pgd_t *pgd;
+    p4d_t *p4d;
+    pud_t *pud;
+    pmd_t *pmd;
+    pte_t *pte;
+    unsigned long paddr = 0;
+    unsigned long page_addr = 0;
+    unsigned long page_offset = 0;
 
-    pgd_t *pgd = pgd_offset(mm, address);
-    if(pgd_bad(*pgd) || pgd_none(*pgd)) {
-        printk("no pgd\n");
-        return NULL;    //error check
+    pgd = pgd_offset(current->mm, vaddr);
+    printk("current->mm->pgd = 0x%lx\n", (unsigned long)current->mm->pgd);
+    printk("pgd = 0x%lx\n", (unsigned long)pgd);
+    printk("pgd_val = 0x%lx\n", pgd_val(*pgd));
+    printk("pgd_index = %lu\n", pgd_index(vaddr));
+    if (pgd_none(*pgd)) {
+        printk("not mapped in pgd\n");
+        return -1;
     }
-
-    p4d_t *p4d = p4d_offset(pgd, address);
-    if(p4d_bad(*p4d) || p4d_none(*p4d)) {
-        printk("no p4d\n");
-        return NULL;    //error check
+    if (pgd_bad(*pgd)) {
+        printk("pgd bad\n");
+        return -1;
     }
     
-    pud_t *pud = pud_offset(p4d, address);
-    if(pud_bad(*pud) || pud_none(*pud)) { 
-        printk("no pud\n");
-        return NULL;    //eroor check
+    p4d = p4d_offset(pgd, vaddr);
+    printk("p4d_val = 0x%lx\n", p4d_val(*p4d));
+    printk("p4d_index = %lu\n", p4d_index(vaddr));
+    if (p4d_none(*p4d)) {
+        printk("not mapped in p4d\n");
+        return -1;
+    }
+    if (p4d_bad(*p4d)) {
+        printk("pgd bad\n");
+        return -1;
     }
 
-    pmd_t *pmd = pmd_offset(pud, address);
-    if(pmd_bad(*pmd) || pmd_none(*pmd)) {
-        printk("no pmd\n");
-        return NULL;    //error check
+    pud = pud_offset(p4d, vaddr);
+    printk("p4d_pfn_mask = 0x%lx\n", p4d_pfn_mask(*p4d));
+    printk("p4d_page_vaddr = 0x%lx\n", p4d_page_vaddr(*p4d));
+    printk("pud_index = 0x%lx\n", pud_index(vaddr));
+    printk("pud = 0x%lx\n", (unsigned long)pud);
+    printk("pud_val = 0x%lx\n", pud_val(*pud));
+    if (pud_none(*pud)) {
+        printk("not mapped in pud\n");
+        return -1;
+    }
+    if (pud_bad(*pud)) {
+        printk("pud bad\n");
+        return -1;
     }
 
-    pte_t *pte = pte_offset_kernel(pmd, address);
-    if(pte_none(*pte)) {
-        printk("no pte\n");
-        return NULL;
+    pmd = pmd_offset(pud, vaddr);
+    printk("pmd_val = 0x%lx\n", pmd_val(*pmd));
+    printk("pmd_index = %lu\n", pmd_index(vaddr));
+    printk("pmd = 0x%lx\n", (unsigned long)pmd);
+    if (pmd_none(*pmd)) {
+        printk("not mapped in pmd\n");
+        return -1;
+    }
+    if (pmd_bad(*pmd)) {
+        printk("pmd bad\n");
+        return -1;
     }
 
-    pg = pte_page(*pte);
-    return pg;
-}
-
-asmlinkage unsigned long sys_virt_to_phy(unsigned long *in, int len_vir, unsigned long *ret, int len_phy) {
-    struct mm_struct *mm = current->mm; //memory descriptor
-    unsigned long *virtual_address = vmalloc(sizeof(unsigned long) * len_vir);
-    unsigned long *physical_address = vmalloc(sizeof(unsigned long) * len_phy);
-
-
-    //copy from/to user code: https://elixir.bootlin.com/linux/v4.12.2/source/include/linux/uaccess.h#L145
-    copy_from_user(virtual_address, in, sizeof(unsigned long) * len_vir);
-    
-    //loop the virtual addreess to physical address
-    int i = 0;
-    for(; i < len_vir; i++) {
-        struct page *pg = from_virt_to_page(mm, virtual_address[i]);
-        if(pg == NULL) {
-            printk("page unfound");
-            return -1;
-        }
-        physical_address[i] = page_to_phys(pg);
-        printk("address %d:\nvir: %x\nphy: %x\n", i, virtual_address[i], physical_address[i]);
+    pte = pte_offset_kernel(pmd, vaddr); 
+    printk("pte = 0x%lx\n", (unsigned long)pte);
+    printk("pte_val = 0x%lx\n", pte_val(*pte));
+    printk("pte_index = %lu\n", pte_index(vaddr));
+    if (pte_none(*pte)) {
+        printk("not mapped in pte\n");
+        return -1;
     }
 
-    copy_to_user(ret, physical_address, sizeof(unsigned long) * len_phy);
+    /* Page frame physical address mechanism | offset */
+    page_addr = pte_val(*pte) & PAGE_MASK;
+    page_offset = vaddr & ~PAGE_MASK;
+    paddr = page_addr | page_offset;
+    printk("page_addr = %lx, page_offset = %lx\n", page_addr, page_offset);
+    printk("vaddr = %lx, paddr = %lx\n", vaddr, paddr);
 
-    return 1;
-
+    return paddr;
 }

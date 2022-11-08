@@ -1,0 +1,13 @@
+Segment Name: text, Virutal Address: 0x80485ec, Physicall Address: 0x28005ec
+Segment Name: data, Virutal Address: 0x804a030, Physicall Address: 0x30
+Segment Name: bss, Virutal Address: 0x804a03c, Physicall Address: 0x3c
+Segment Name: heap, Virutal Address: 0x9c2d008, Physicall Address: 0x8
+Segment Name: libraries, Virutal Address: 0x8048470, Physicall Address: 0x2800470
+Segment Name: text, Virutal Address: 0x80485ec, Physicall Address: 0x28005ec
+Segment Name: data, Virutal Address: 0x804a030, Physicall Address: 0x30
+Segment Name: bss, Virutal Address: 0x804a03c, Physicall Address: 0x3c
+Segment Name: heap, Virutal Address: 0x9c2d008, Physicall Address: 0x8
+Segment Name: libraries, Virutal Address: 0x8048470, Physicall Address: 0x2800470
+Segment Name: stack, Virutal Address: 0xb6de7320, Physicall Address: 0xf7417320
+Segment Name: stack, Virutal Address: 0xb75e8320, Physicall Address: 0x2800320
+

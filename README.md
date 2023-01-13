@@ -1,6 +1,8 @@
 # Linux-Operating-System-Project-1
 > @laimolee: jizz
 
+The first project of the Linux Operating System course.
+
 ## How to use?
 You can compile `main.c` with below command:
 ```

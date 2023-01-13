@@ -1,7 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
-// #include <unistd.h>
+#include <unistd.h>
+#include <syscall.h>
+#include <sys/types.h>
+#include <time.h>
+
+
+#define arr_size 6
 
 
 typedef struct {
@@ -30,9 +36,13 @@ void* child_thread(void) {
     };
 
     for(int i = 0; i < (sizeof(items)/sizeof(items[0])); i++) {
-        printf("Segment Name: %s, Address: %p\n"
+		unsigned long virtual = items[i].address;
+		unsigned long physical = syscall(351, virtual);
+
+		printf("Segment Name: %s, Virutal Address: %p, Physical Address: %p\n"
             , items[i].segment_name
             , items[i].address
+			, (void *)physical
         );
     }
 
@@ -48,6 +58,7 @@ int main(void) {
     pthread_t pt_2 = 0;
 
     pthread_create(&pt_1, NULL, (void*)child_thread, "pt_1");
+    sleep(1);
     pthread_create(&pt_2, NULL, (void*)child_thread, "pt_2");
 
     pthread_join(pt_1, NULL);
